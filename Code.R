@@ -55,23 +55,37 @@ wine_training_set <- cbind(train, classsify)
 #create the test result
 wine_testing_result <- wine2[-id_test, 15]
 
-##
-colnames(wine_training_set)[ncol(wine_training_set)] <- "y"
-wine_training_set <- as.data.frame(wine_training_set)
-wine_training_set$y <- as.factor(wine_training_set$y)
+
+
 
 library(caret)
+ctrl <- trainControl(method="repeatedcv",   # 10fold cross validation
+                     repeats=5,		    # do 5 repititions of cv
+                     summaryFunction=twoClassSummary,	# Use AUC to pick the best model
+                     classProbs=TRUE)
+
+train_model <- train(x=train,
+                  y= classsify,
+                  method = "svmRadial",   # Radial kernel
+                  tuneLength = 9,					# 9 values of the cost function
+                  preProc = c("center","scale"),  # Center and scale data
+                  metric="ROC",
+                  trControl=ctrl)
+
+
+##train old
+#colnames(wine_training_set)[ncol(wine_training_set)] <- "y"
+#wine_training_set <- as.data.frame(wine_training_set)
+#wine_training_set$y <- as.factor(wine_training_set$y)
 #train_model <- train(y ~., data = wine_training_set, method = 'svmLinear3')
-train_model <- train(y ~., data = wine_training_set, method = 'naive_bayes')
+#train_model <- train(y ~., data = wine_training_set, method = 'naive_bayes')
 #train_model <- train(y ~., data = wine_training_set, method = 'svmRadial')
 
 
 #Build the prediction  
 model_result <- predict(train_model, newdata = test)
-check_accuracy <- as.data.frame(cbind(prediction = model_result,  classify = wine_testing_result))
 
-check_accuracy <- check_accuracy %>% mutate(prediction = as.integer(prediction))
-
-check_accuracy$accuracy <- if_else(check_accuracy$prediction == check_accuracy$classify, 1, 0)
-round(prop.table(table(check_accuracy$accuracy)), 3)
+conf_train <- table(model_result, wine_testing_result)
+names(dimnames(conf_train)) <- c("Predicted class", "Actual class")
+confusionMatrix(conf_train)
 
