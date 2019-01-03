@@ -38,20 +38,31 @@ library(stringr)
 ##clean function
 clean <- function(text_vector)
   {
-    wine_corpus = Corpus(VectorSource(text_vector))
+    wine_corpus = VCorpus(VectorSource(text_vector))
     wine_corpus = tm_map(wine_corpus, removePunctuation)
     wine_corpus = tm_map(wine_corpus, content_transformer(tolower))
     wine_corpus = tm_map(wine_corpus, removeNumbers)
     wine_corpus = tm_map(wine_corpus, removeWords, c("the", "and", stopwords("english")))
-    wine_corpus = tm_map(wine_corpus, stripWhitespace)
+    #wine_corpus = tm_map(wine_corpus, stripWhitespace)
     wine_corpus <- tm_map(wine_corpus, stemDocument)
+    
     
     return(wine_corpus)
   }
 
+NLP_tokenizer <- function(x) {
+  unlist(lapply(ngrams(words(x), 1:1), paste, collapse = "_"), use.names = FALSE)
+}
+
 ##create the train set
 wine_train_set <- clean(train$description)
-train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf))
+
+
+#corpus <- Corpus(VectorSource(texts))
+#matrix <- DocumentTermMatrix(corpus,control=list(tokenize=tokenize_ngrams))
+
+train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf, tokenize=NLP_tokenizer))
+#train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list( tokenize=NLP_tokenizer))
 #train_dtm_tfidf <- DocumentTermMatrix(wine_train_set)
 train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.95)
 
@@ -59,8 +70,8 @@ train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.95)
 
 #create the test set
 wine_test_set <- clean(test$description)
-wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) ,weighting = weightTfIdf))
-#wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf)))
+wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) ,weighting = weightTfIdf, tokenize=NLP_tokenizer))
+#wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) , tokenize=NLP_tokenizer))
 
 #create matrix for training
 wine_train_set <- as.matrix(train_dtm_tfidf)
@@ -91,15 +102,15 @@ library(caret)
 #colnames(wine_train_set)[ncol(wine_train_set)] <- "y"
 #wine_train_set <- as.data.frame(wine_train_set)
 #wine_train_set$y <- as.factor(wine_train_set$y)
-#train_model <- train(y ~., data = wine_training_set, method = 'svmLinear3')
-train_model <- train(x= wine_train_set, y=train$quality , method = 'naive_bayes')
-#train_model <- train(y ~., data = wine_training_set, method = 'svmRadial')
-#train_model <- train(y ~., data = wine_training_set, method = 'gbm')
-#train_model <- train(y ~., data = wine_training_set, method = 'nnet')
+#train_model <- train(x= wine_train_set, y=train$quality , method = 'svmLinear3')
+train_nb_model <- train(x= wine_train_set, y=train$quality , method = 'naive_bayes')
+#train_model <- train(x= wine_train_set, y=train$quality , method = 'svmRadial')
+#train_model <- train(x= wine_train_set, y=train$quality , method = 'gbm')
+#train_model <- train(x= wine_train_set, y=train$quality , method = 'nnet')
 
 
 #Build the prediction  
-model_result <- predict(train_model, newdata = wine_test_set)
+model_result <- predict(train_nb_model, newdata = wine_test_set)
 
 conf_train <- table(model_result, wine_testing_result)
 names(dimnames(conf_train)) <- c("Predicted class", "Actual class")
