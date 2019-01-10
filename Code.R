@@ -13,6 +13,24 @@ wine$benefit <- as.factor(wine$benefit)
 wine$description <- paste(wine$description, wine$country, wine$designation, wine$province, wine$region_1, wine$region_2, wine$variety)
 wine$description <- as.character(wine$description)
 
+#Convert Wine type language
+#Replace german names with English names for wines
+
+wine$description <- gsub("weissburgunder", "chardonnay", wine$description)
+wine$description <- gsub("spatburgunder", "pinot noir", wine$description)
+wine$description <- gsub("grauburgunder", "pinot gris", wine$description)
+
+#Replace the Spanish garnacha with the french grenache
+wine$description <- gsub("garnacha", "grenache", wine$description)
+
+#Replace the Italian pinot nero with the french pinot noir
+wine$description <- gsub("pinot nero", "pinot noir", wine$description)
+
+#Replace the Portugues alvarinho with the spanish albarino
+wine$description <- gsub("alvarinho", "albarino", wine$description)
+
+#wine$description <- wine[which(!grepl("[^\x01-\x7F]+", wine$description)),]
+
 # split train/test
 n = dim(wine)[1]
 set.seed(12345)
@@ -34,6 +52,14 @@ test = wine_sample[-id_test,]
 library(dplyr)
 library(tm)
 library(stringr)
+library(NLP)
+library(openNLP)
+
+#update stop words:
+
+stopwords <- stopwords("english")
+stopwords <- stopwords[!stopwords=="very"]
+stopwords <- c("the", "and", "wine", stopwords)
 
 ##clean function
 clean <- function(text_vector)
@@ -42,7 +68,7 @@ clean <- function(text_vector)
     wine_corpus = tm_map(wine_corpus, removePunctuation)
     wine_corpus = tm_map(wine_corpus, content_transformer(tolower))
     wine_corpus = tm_map(wine_corpus, removeNumbers)
-    wine_corpus = tm_map(wine_corpus, removeWords, c("the", "and", stopwords("english")))
+    wine_corpus = tm_map(wine_corpus, removeWords, stopwords )
     #wine_corpus = tm_map(wine_corpus, stripWhitespace)
     wine_corpus <- tm_map(wine_corpus, stemDocument)
     
@@ -64,7 +90,7 @@ wine_train_set <- clean(train$description)
 train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf, tokenize=NLP_tokenizer))
 #train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list( tokenize=NLP_tokenizer))
 #train_dtm_tfidf <- DocumentTermMatrix(wine_train_set)
-train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.95)
+train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.99)
 
 #wine_train_set <- cbind(wine_train_set, train$quality)
 
@@ -79,6 +105,35 @@ wine_test_set <- as.matrix(wine_test_set)
 wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
 #create the test result
 wine_testing_result <- test$quality
+
+
+#tagPos
+
+tagPOS <-  function(x, ...) {
+  s <- as.String(x)
+  word_token_annotator <- Maxent_Word_Token_Annotator()
+  a2 <- Annotation(1L, "sentence", 1L, nchar(s))
+  a2 <- annotate(s, word_token_annotator, a2)
+  a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
+  a3w <- a3[a3$type == "word"]
+  POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
+  POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
+  list(POStagged = POStagged, POStags = POStags)
+}
+
+#Weight for nouns:
+tag <- tagPOS(Terms(train_dtm_tfidf))
+tag <- tag$POStags
+noun_id <- which( tag=="NN")
+nouns <- colnames(wine_train_set)[noun_id]
+
+#multify for noun
+for (i in 1:dim(wine_train_set)[2]) {
+  if (colnames(wine_train_set)[i] %in% nouns ) {
+    wine_train_set[,i] <- wine_train_set[,i]*2
+    #wine_test_set[,i] <- wine_test_set[,i]*2
+  }
+}
 
 
 # Trainning model
