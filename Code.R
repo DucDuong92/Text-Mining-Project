@@ -1,12 +1,12 @@
 #Load and preprocess data
 wine <- read.csv("C:/Users/Duong Minh Duc/Documents/GitHub/Text-Mining-Project/wine.csv")
 wine <- na.omit(wine)
-wine$quality <- wine$points > 90
+wine$quality <- wine$points > 88
 wine$quality[wine$quality == TRUE] <- "excellent"
 wine$quality[wine$quality == FALSE] <- "good"
 wine$quality <- as.factor(wine$quality)
 wine$value <- wine$points/log(wine$price)
-wine$benefit <- wine$value > 30
+wine$benefit <- wine$value > 27
 wine$benefit[wine$benefit == TRUE] <- "high"
 wine$benefit[wine$benefit == FALSE] <- "medium"
 wine$benefit <- as.factor(wine$benefit)
@@ -107,33 +107,36 @@ wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
 wine_testing_result <- test$quality
 
 
-#tagPos
 
-tagPOS <-  function(x, ...) {
-  s <- as.String(x)
-  word_token_annotator <- Maxent_Word_Token_Annotator()
-  a2 <- Annotation(1L, "sentence", 1L, nchar(s))
-  a2 <- annotate(s, word_token_annotator, a2)
-  a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
-  a3w <- a3[a3$type == "word"]
-  POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
-  POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
-  list(POStagged = POStagged, POStags = POStags)
-}
 
-#Weight for nouns:
-tag <- tagPOS(Terms(train_dtm_tfidf))
-tag <- tag$POStags
-noun_id <- which( tag=="NN")
-nouns <- colnames(wine_train_set)[noun_id]
 
-#multify for noun
-for (i in 1:dim(wine_train_set)[2]) {
-  if (colnames(wine_train_set)[i] %in% nouns ) {
-    wine_train_set[,i] <- wine_train_set[,i]*2
-    #wine_test_set[,i] <- wine_test_set[,i]*2
-  }
-}
+# #tagPos
+# 
+# tagPOS <-  function(x, ...) {
+#   s <- as.String(x)
+#   word_token_annotator <- Maxent_Word_Token_Annotator()
+#   a2 <- Annotation(1L, "sentence", 1L, nchar(s))
+#   a2 <- annotate(s, word_token_annotator, a2)
+#   a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
+#   a3w <- a3[a3$type == "word"]
+#   POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
+#   POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
+#   list(POStagged = POStagged, POStags = POStags)
+# }
+# 
+# #Weight for nouns:
+# tag <- tagPOS(Terms(train_dtm_tfidf))
+# tag <- tag$POStags
+# noun_id <- which( tag=="NN")
+# nouns <- colnames(wine_train_set)[noun_id]
+
+# #multify for noun
+# for (i in 1:dim(wine_train_set)[2]) {
+#   if (colnames(wine_train_set)[i] %in% nouns ) {
+#     wine_train_set[,i] <- wine_train_set[,i]*2
+#     #wine_test_set[,i] <- wine_test_set[,i]*2
+#   }
+# }
 
 
 # Trainning model
@@ -170,7 +173,6 @@ model_result <- predict(train_nb_model, newdata = wine_test_set)
 conf_train <- table(model_result, wine_testing_result)
 names(dimnames(conf_train)) <- c("Predicted class", "Actual class")
 confusionMatrix(conf_train)
-
 # check_accuracy <- as.data.frame(cbind(prediction = model_result,  classify = wine_testing_result))
 # 
 # check_accuracy <- check_accuracy %>% mutate(prediction = as.integer(prediction))
