@@ -100,44 +100,47 @@ wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = T
 #wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) , tokenize=NLP_tokenizer))
 
 #create matrix for training
-wine_train_set <- as.matrix(train_dtm_tfidf)
+wine_train_set <<- as.matrix(train_dtm_tfidf)
 wine_test_set <- as.matrix(wine_test_set)
 wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
 #create the test result
 wine_testing_result <- test$quality
 
 
+#tagPos
+tagPOS <-  function(x, ...) {
+  s <- as.String(x)
+  word_token_annotator <- Maxent_Word_Token_Annotator()
+  a2 <- Annotation(1L, "sentence", 1L, nchar(s))
+  a2 <- annotate(s, word_token_annotator, a2)
+  a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
+  a3w <- a3[a3$type == "word"]
+  POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
+  POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
+  list(POStagged = POStagged, POStags = POStags)
+}
 
+#Weight for nouns:
+tag <- tagPOS(Terms(train_dtm_tfidf))
+tag <- tag$POStags
+noun_id <- which( tag=="NN")
+nouns <- colnames(wine_train_set)[noun_id]
+adj_id <- which( tag=="JJ")
+adj <- colnames(wine_train_set)[adj_id]
 
+column_id <- c()
 
-# #tagPos
-# 
-# tagPOS <-  function(x, ...) {
-#   s <- as.String(x)
-#   word_token_annotator <- Maxent_Word_Token_Annotator()
-#   a2 <- Annotation(1L, "sentence", 1L, nchar(s))
-#   a2 <- annotate(s, word_token_annotator, a2)
-#   a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
-#   a3w <- a3[a3$type == "word"]
-#   POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
-#   POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
-#   list(POStagged = POStagged, POStags = POStags)
-# }
-# 
-# #Weight for nouns:
-# tag <- tagPOS(Terms(train_dtm_tfidf))
-# tag <- tag$POStags
-# noun_id <- which( tag=="NN")
-# nouns <- colnames(wine_train_set)[noun_id]
+#multify for noun
+for (i in 1:dim(wine_train_set)[2]) {
+  check <- colnames(wine_train_set)[i] %in% adj
+  if(check) 
+    {
+      column_id <- c(column_id, i)
+    }
+}
 
-# #multify for noun
-# for (i in 1:dim(wine_train_set)[2]) {
-#   if (colnames(wine_train_set)[i] %in% nouns ) {
-#     wine_train_set[,i] <- wine_train_set[,i]*2
-#     #wine_test_set[,i] <- wine_test_set[,i]*2
-#   }
-# }
-
+wine_train_set[,column_id] <- wine_train_set[,column_id]*5
+wine_test_set[,column_id] <- wine_test_set[,column_id]*5
 
 # Trainning model
 library(caret)
