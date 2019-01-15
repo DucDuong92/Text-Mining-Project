@@ -1,6 +1,7 @@
 #Load and preprocess data
 wine <- read.csv("C:/Users/Duong Minh Duc/Documents/GitHub/Text-Mining-Project/wine.csv")
 wine <- na.omit(wine)
+wine[duplicated(wine),]
 wine$quality <- wine$points > 88
 wine$quality[wine$quality == TRUE] <- "excellent"
 wine$quality[wine$quality == FALSE] <- "good"
@@ -29,7 +30,8 @@ wine$description <- gsub("pinot nero", "pinot noir", wine$description)
 #Replace the Portugues alvarinho with the spanish albarino
 wine$description <- gsub("alvarinho", "albarino", wine$description)
 
-#wine$description <- wine[which(!grepl("[^\x01-\x7F]+", wine$description)),]
+#clean function
+wine$description <- iconv(wine$description, from = "UTF-8", to = "ASCII", sub = "")
 
 # split train/test
 n = dim(wine)[1]
@@ -56,7 +58,6 @@ library(NLP)
 library(openNLP)
 
 #update stop words:
-
 stopwords <- stopwords("english")
 stopwords <- stopwords[!stopwords=="very"]
 stopwords <- c("the", "and", "wine", stopwords)
@@ -83,7 +84,6 @@ NLP_tokenizer <- function(x) {
 ##create the train set
 wine_train_set <- clean(train$description)
 
-
 #corpus <- Corpus(VectorSource(texts))
 #matrix <- DocumentTermMatrix(corpus,control=list(tokenize=tokenize_ngrams))
 
@@ -107,40 +107,40 @@ wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
 wine_testing_result <- test$quality
 
 
-#tagPos
-tagPOS <-  function(x, ...) {
-  s <- as.String(x)
-  word_token_annotator <- Maxent_Word_Token_Annotator()
-  a2 <- Annotation(1L, "sentence", 1L, nchar(s))
-  a2 <- annotate(s, word_token_annotator, a2)
-  a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
-  a3w <- a3[a3$type == "word"]
-  POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
-  POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
-  list(POStagged = POStagged, POStags = POStags)
-}
+# #tagPos
+# tagPOS <-  function(x, ...) {
+#   s <- as.String(x)
+#   word_token_annotator <- Maxent_Word_Token_Annotator()
+#   a2 <- Annotation(1L, "sentence", 1L, nchar(s))
+#   a2 <- annotate(s, word_token_annotator, a2)
+#   a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
+#   a3w <- a3[a3$type == "word"]
+#   POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
+#   POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
+#   list(POStagged = POStagged, POStags = POStags)
+# }
 
-#Weight for nouns:
-tag <- tagPOS(Terms(train_dtm_tfidf))
-tag <- tag$POStags
-noun_id <- which( tag=="NN")
-nouns <- colnames(wine_train_set)[noun_id]
-adj_id <- which( tag=="JJ")
-adj <- colnames(wine_train_set)[adj_id]
-
-column_id <- c()
-
-#multify for noun
-for (i in 1:dim(wine_train_set)[2]) {
-  check <- colnames(wine_train_set)[i] %in% adj
-  if(check) 
-    {
-      column_id <- c(column_id, i)
-    }
-}
-
-wine_train_set[,column_id] <- wine_train_set[,column_id]*5
-wine_test_set[,column_id] <- wine_test_set[,column_id]*5
+# #Weight for nouns:
+# tag <- tagPOS(Terms(train_dtm_tfidf))
+# tag <- tag$POStags
+# noun_id <- which( tag=="NN")
+# nouns <- colnames(wine_train_set)[noun_id]
+# adj_id <- which( tag=="JJ")
+# adj <- colnames(wine_train_set)[adj_id]
+# 
+# column_id <- c()
+# 
+# #multify for noun
+# for (i in 1:dim(wine_train_set)[2]) {
+#   check <- colnames(wine_train_set)[i] %in% adj
+#   if(check) 
+#     {
+#       column_id <- c(column_id, i)
+#     }
+# }
+# 
+# wine_train_set[,column_id] <- wine_train_set[,column_id]*5
+# wine_test_set[,column_id] <- wine_test_set[,column_id]*5
 
 # Trainning model
 library(caret)
@@ -182,3 +182,7 @@ confusionMatrix(conf_train)
 # 
 # check_accuracy$accuracy <- if_else(check_accuracy$prediction == check_accuracy$classify, 1, 0)
 # round(prop.table(table(check_accuracy$accuracy)), 3)
+
+
+#top influence
+varImp(train_nb_model)
