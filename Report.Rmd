@@ -1,0 +1,724 @@
+---
+title: "Text mining project"
+author: "mindu931"
+date: "16 January 2019"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE,include=FALSE}
+library(dplyr)
+library(tm)
+library(stringr)
+library(NLP)
+library(openNLP)
+library(caret)
+library(wordcloud)
+library(RColorBrewer)
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, include=FALSE)
+```
+
+# Abstract
+Wine sensory audition and assessment is never easy, even with a wine specialist. However, the description which is printed on each bottle can bring us some helpful information. Base on that ideal, I decided to analyze the data about wine review (take form Kaggle) and help the consumers make the decision on two different aspects. The first one is which is a good and excellent wine. The second aspect is which is the worth the price bottle (high value with a limit amount of money). I use different methods to process the text data, then when compare Naive Bayes, SVM linear and SVM RBF kernel when building the best model for predicting. The final result is quite impressive with accuracy aa%. Base on this model, some suggestions are provided for the consumer to choose a satisfied bottle.
+
+# Introduction
+## Motivation
+I always confuse when standing in a wine cellar. How can I choose an excellent wine for my family? What is the best wine I can choose with my budget? The problem can be solved easier if I had a good sense. But, sadly, I don't, like many people in this world. The problems still continue when I listen to the advice of the salesman and even taste some wine. So, I usually choose randomly one bottle based on these devices for my event. Unluckily, sometimes my relatives don't think that it is a good wine.
+## Aim
+I guess that the information from the provider (description, country, region, designation...) should bring some important information. So, I try to solve the problems base on text mining ideal: Take the wine data which is already reviewed and marked by some specialists, then process these data together with the point and build a model to prediction in order to figure out which bottle is good or excellent, which one have high benefit or just medium. 
+## Content of this report
+In this report, Firstly, I will provide information about the data as well as the way I define the class for each bottle. Then, I briefly summary relevant theory. The method I used will be presented in details. It includes the steps for preprocessing, compares and choosing the best model, my suggestions for choosing wine. Finally is some discussions and my conclusion.
+
+# Data
+Wine review data is taken form Kaagle [link](https://www.kaggle.com/zynicide/wine-reviews). I choose the second .csv version of this dataset. In this version, duplicated data is removed. The data include 120975 samples about wine. Each sample contains the following information: country, description, designation, points, price, province, region, more specific region (region2), tester name, taster_twitter handle, title, variety, and winery. Here is the overlook of the review:
+```{r}
+wine <- read.csv("C:/Users/Duong Minh Duc/Documents/GitHub/Text-Mining-Project/wine.csv")
+```
+
+```{r, include=TRUE}
+head(wine)
+```
+
+Points are important information about this data. Points are marked by wine specialist, which make it reliable. The owner only public data which have at least 80 point (out of 100) which means the data contain only good and excellent wine.
+Here is the distribution of the point
+```{r, include=TRUE}
+boxplot(wine$points, main="Boxplot of points")
+#bar plot
+```
+and some plots about other informations:...
+
+## Theory
+In this section, I will briefly talk about some theory in nature language processing(NLP) and machine learning(ML) in a simple way of reviewing. For some terms, only the aspect that relevant to this project is presented. I assume that the reader already has some basic knowledge about NLP and ML before(this part is not a guide for a person with a blank background). I also noticed that we are processing the text written in English.
+
+-Terms in preprocessing:
+  + Stop words: This is the term for useless words in the text. To be specific, these words usually have no (or very low) meaning but represent a lot. For example: a, an, the... When processing text data. We usually remove these words.
+  + Steaming: This is the process of reducing a word to its root form. For example: processes, processing and processed are 3 different words, but it just 3 different representatives of the word "process". Another example is evaluated and evaluation.
++ tokenization: the process of splitting text into smaller parts. Each part can consider as a feature when training in machine learning kernels. If the smaller part here is the single word (split the text to single words) then all words we have will become the bag of words.
++ Corpus: You can understand simply that corpus is a collection of all features in NLP, used for training. For example, all word in the bag of words is a corpus. 
++ Document term matrix(Dtm) is a matrix, which has column is all words of the corpus and column is the document ID. The cross between row and column is the point for that word in that document. Points can be calculated in some different ways. In this project, I use tf-idf.
++ tf-idf: Stand for term frequency-inverse document frequency. This is a statistic method for calculating the importance of each word following this formula:
+
+$$ tfidf(t,d,D) = tf(t,d)*idf(t,D) $$
+
+$$ tf(t,d) = \frac {f_{t,d}} {\sum f_{t',d(t'\in d)}} $$
+
+$$idf(t,D) = log \frac {|D|}{|d \in D : t \in d|}$$
+
+${|d \in D : t \in d|}$ number of documents where the term t appers. If this value equal 0, it will be adjust to 1
+D: total number of documents in the corpus
+
+To be specific, If a word is represented many times in almost documents, it is not so importance, and vice versa.
+
+- Machine learning kernels: a kernel can understand as a core algorithm used when training a model in ML. Here are the three kernels that I use in this report:
+
++Naive Bayes: 
+Let initial with we have a vector X of a document, which builds in document-term matrix. The probability of assign a class label y to that vector is:
+$$ P(X = (x_i,...x_P)|Y=y) = \prod_{i=1}^p P(X_i=x_i|Y=y)$$
+Naive-Bayes theory make an asump that all features are independent. The assumption is not realistic, somehow, it works well.
+
++SVM: stand for support vector machine. In the previous kernel, we have vector X for each document. immage that each document is represent by a vector in a multi-dimension space. (The number of dimension is the number of features). The aim is finding a hyper-plane to seperate the space into two class.
+++SVM linear and RBF kenels: SVM Linear will decide the hyper-plane as a flat. SVM RBF will use an other dimension to sole the problem. Let's see an example of how linear and RBF kerels work in some pictures:
+
+-Ngram: n-gram is n continue sequence words. In this project, n-gram is used for making corpus. An example is n=2 continue words wil be features. To be more specific, the sentence: "this is a sentence" will have this_is, is_a, a_sentence as features.
+
+-Part-Of-Speech Tagger (POS Tagger): This is the method to process text and decided each word is nouns, ajdtive, adverb...
+
+## Method
+In this part, I'll talk about the method for the first problem of this project: Which is the "good" and "excellent" wine. The second problem about wine that has "high" and "medium" value is solved using a similar method but will be discussed in details in a different part.
+- Define the class:
+The first step is to define the class for each document. Base on the distribution of the point, I will take the point 88 as the boundary because it is the median value, which will make the data become balance. So, the wine that has higher than 88 will be the excellent wine, while the rest is the good wine.
+- Preprocess data
+  + Split train and test: I use 80% of the data as the training set and 20% as the testing set. Then, the training data is processed as follow:
+  + Make the text ready: I decided that the information about the country, designation, province, region, and wine variety is important. So, I decided to merge that information into the description as a paragraph. That paragraph is the one that I will process.
+  + Language convert: In the data set. there is some name of variety that is not unified (same type but written in the different language). So I convert it to the most famous word as follow:
+    ++ Replace German names with English names: "weissburgunder" is replaced as "chardonnay". "spatburgunder" is replaced as "pinot noir". "grauburgunder" is replaced as "pinot gris".  
+    ++ Replace the Spanish "garnacha"" with the french "grenache".
+    ++ Replace the Italian "pinot nero"" with the french "pinot noir".
+    ++ Replace the Portugues "alvarinho"" with the spanish "albarino".
+
+  + Remove non-ASCII characters.
+  + Remove punction .
+  + Make words to lower from.
+  + Remove number.
+  + Remove stop words: I use the default stop words lists in the `tm` library and then adjust it. Firstly, the lists have the word "very". In my opinion, very is a valuable word in this data. Because in the descriptions, for example, "sweet" and "very sweet" are different levels of flavor. So, I remove that word on the list. Then, I add three words "the", "and" and "wine" to the stop word list because, in this data set, it doesn't have any meaning. Here is the final stop word list:
+```{r}
+stopwords <- stopwords("english")
+stopwords <- stopwords[!stopwords=="very"]
+stopwords <- c("the", "and", "wine", stopwords)
+
+```
+
+```{r}
+stopwords
+```
+
+  +Steamming: I steam the word by using SnowballC steam.  
+  +Tonkenzine and making the bag of words as the corpus. Then I only keep 99% spare term. Which mean that only the words that appear in at least 1% of documents are kept. It makes sense because there are some rare words which only appear in one or a few documents. That words are not helpful for training because maybe we never meet it again in the testing set.
+  +Create the document terms matrix base on tf-idf.
+  +Now the data is ready for training. For testing data, the preprocess is similar, except the Dtm. Dtm of testing data will be create based on the corpus of training data (which means some words that don't appear in the training data will be drop)
+
+-Compare kernels:
+At this step, I'll use the ready Dtm for training model, then test with the testing Dtm. Three kernel Naive-Bayes, SVM linear and SVM RBF are used to compare. In this step, because of the limit in my resource (Laptop core i5 7th gen, 8GB) and time. I only use the sample 20% of the data (16% - 19356 samples for training and 4% - 4839 samples for testing) to compute. Different parameters used for training is also reported. Notice that the time for training NB and SVM linear is quite fast (a few minutes) but It takes a long time for training SVM RBF (~14 hours, for 505 terms in Dtm, include time for tunning model)
+- Improve the best model: After comparing, the best model is selected. Then I continue to improve the model when using n-gram and adjust the weight for some terms using Part-Of-Speech Tagger (POS Tagger). 
+- Final result: Final model is selected and run again with 100% data. The final result is reported based on this model.
+
+## Result and explain
+- Firstly, Let's takes a look at 5 original paragraphs and the paragraphs after preprocessing to see how it work:
+```{r}
+# Use for check the not available and duplicate data, but not necessary
+#wine <- na.omit(wine)
+#wine[duplicated(wine),]
+wine$quality <- wine$points > 88
+wine$quality[wine$quality == TRUE] <- "excellent"
+wine$quality[wine$quality == FALSE] <- "good"
+wine$quality <- as.factor(wine$quality)
+wine$value <- wine$points/log(wine$price)
+wine$benefit <- wine$value > 27
+wine$benefit[wine$benefit == TRUE] <- "high"
+wine$benefit[wine$benefit == FALSE] <- "medium"
+wine$benefit <- as.factor(wine$benefit)
+wine$description <- paste(wine$description, wine$country, wine$designation, wine$province, wine$region_1, wine$region_2, wine$variety)
+wine$description <- as.character(wine$description)
+
+wine$description <- gsub("weissburgunder", "chardonnay", wine$description)
+wine$description <- gsub("spatburgunder", "pinot noir", wine$description)
+wine$description <- gsub("grauburgunder", "pinot gris", wine$description)
+
+#Replace the Spanish garnacha with the french grenache
+wine$description <- gsub("garnacha", "grenache", wine$description)
+
+#Replace the Italian pinot nero with the french pinot noir
+wine$description <- gsub("pinot nero", "pinot noir", wine$description)
+
+#Replace the Portugues alvarinho with the spanish albarino
+wine$description <- gsub("alvarinho", "albarino", wine$description)
+
+#clean function
+wine$description <- iconv(wine$description, from = "UTF-8", to = "ASCII", sub = "")
+
+```
+
+
+```{r}
+n = dim(wine)[1]
+set.seed(12345)
+id = sample(1:n, floor(n*0.8))
+train_full = wine[id,]
+test_full = wine[-id,]
+
+id2 = sample(1:n, floor(n*0.2))
+wine_sample <- wine[id2,]
+wine2 <- wine[id2,]
+n2 = length(id2)
+id_test = sample(1:n2, floor(n2*0.8))
+train = wine_sample[id_test,]
+test = wine_sample[-id_test,]
+
+##clean function
+clean <- function(text_vector)
+  {
+    wine_corpus = VCorpus(VectorSource(text_vector))
+    wine_corpus = tm_map(wine_corpus, removePunctuation)
+    wine_corpus = tm_map(wine_corpus, content_transformer(tolower))
+    wine_corpus = tm_map(wine_corpus, removeNumbers)
+    wine_corpus = tm_map(wine_corpus, removeWords, stopwords )
+    #wine_corpus = tm_map(wine_corpus, stripWhitespace)
+    wine_corpus <- tm_map(wine_corpus, stemDocument)
+    
+    
+    return(wine_corpus)
+  }
+
+##create the train set
+wine_train_set <- clean(train$description)
+
+```
+
+```{r, include=TRUE}
+train$description[1:5]
+wine_train_set[1:5]
+```
+
+- Then, Here is the Dtm for the first sentence of training set:
+```{r}
+
+train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf))
+#train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list( tokenize=NLP_tokenizer))
+#train_dtm_tfidf <- DocumentTermMatrix(wine_train_set)
+train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.99)
+
+#wine_train_set <- cbind(wine_train_set, train$quality)
+
+#create the test set
+wine_test_set <- clean(test$description)
+wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) ,weighting = weightTfIdf))
+#wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) , tokenize=NLP_tokenizer))
+
+#create matrix for training
+wine_train_set <<- as.matrix(train_dtm_tfidf)
+wine_test_set <- as.matrix(wine_test_set)
+wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
+#create the test result
+wine_testing_result <- test$quality
+
+```
+
+```{r, include=TRUE}
+train_dtm_tfidf[1,]
+
+```
+
+And let see the first line of Dtm for testing set see make sure that the prepared data is correct. As we can see, the term remains. Just the points are different.
+
+```{r, include=TRUE}
+wine_test_set[1,]
+```
+
+Now, the data is ready. I train that dataset with threes different kernels as mentioned. And here is the results:
+
+```{r}
+train_nb_model <- train(x= wine_train_set, y=train$quality , method = 'naive_bayes')
+
+model_nb_result <- predict(train_nb_model, newdata = wine_test_set)
+conf_nb_train <- table(model_nb_result, wine_testing_result)
+names(dimnames(conf_nb_train)) <- c("Predicted class", "Actual class")
+
+```
+
+```{r, include=TRUE}
+train_nb_model
+confusionMatrix(conf_nb_train)
+```
+
+
+```{r}
+#Here is the SVM Linear kenel
+train_svmLinear_model <- train(x= wine_train_set, y=train$quality , method = 'svmLinear3')
+
+model_svmLinear_result <- predict(train_svmLinear_model, newdata = wine_test_set)
+conf_svmLinear_train <- table(model_svmLinear_result, wine_testing_result)
+names(dimnames(conf_svmLinear_train)) <- c("Predicted class", "Actual class")
+
+```
+
+```{r, include=TRUE}
+train_svmLinear_model
+confusionMatrix(conf_svmLinear_train)
+```
+
+
+```{r}
+# #Here is the SVM RBF kenel
+# # Because the trainning time is long. I'll not run this code and only attach images of the previous run.
+# train_svmRBF_model <- train(x= wine_train_set, y=train$quality , method = 'svmRadial')
+# train_svmRBF_model
+# model_svmRBF_result <- predict(train_svmRBF_model, newdata = wine_test_set)
+# 
+# conf_svmRBF_train <- table(model_svmRBF_result, wine_testing_result)
+# names(dimnames(conf_svmRBF_train)) <- c("Predicted class", "Actual class")
+# confusionMatrix(conf_svmRBF_train)
+```
+
+![SVMRBF kenel](SvmRBF.png)
+
+![SVMRBF result](SVMRBF_predict.png)
+
+As we can see in the result, The accuracy when training data for NB, SVM Linear and SVM RBF is aa%, bb%, and 81.11%. As a result, I expected that the accuracy when testing with test data will be similar. But it just 74.68% for NB, 78.59% for SVM Linear and 71.36%. SVM Linear is the kernel which has the highest value of accuracy for testing. No information rate (NIR) 0.5323 mean that a class takes 53.23%(Good class), which mean the data is balanced. We can judge that the model is actually worked.
+But, accuracy is just one side of the story. Let see about the classification: We have two classes "good" and "excellent". If the class is predicted exactly, it's perfect. Obviously, excellent wine is better than good wine. So, if a good wine is predicted as excellent wine, it's hard to accept (Similar to false negative-FN). In contrast, If you pretend to buy good wine but have excellent wine. You are just lucky and nothing happened. (similar with false positive-FP)
+SVM RBF kernel show the lowest number of false negative. But, I also see that the predicted result is biased to the "good class": The number of good wine is predicted is triple as the number of excellent wine. It's quite hard for understand. On the other hand, SVM Linear is better than NB in all indicators.
+
+After all, I consider the accuracy, the number of confusion matrix and the training time for choosing the best model. In my opinion, It's SVM Linear. (SVM RBF is interesting but it's hard when I try to improve the model with that high training time, consider the scope of this project)
+
+-Improve the model: I'll try to improve the SVM linear model with the following methods:
+  + Improve with n-gram: 
+Firstly, I try to train the model with 2-gram, (the preprocess still remain) here is the first line of Dtm:
+```{r}
+NLP_tokenizer <- function(x) {
+  unlist(lapply(ngrams(words(x), 2:2), paste, collapse = "_"), use.names = FALSE)
+}
+
+wine_train_set <- clean(train$description)
+
+train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf, tokenize=NLP_tokenizer))
+train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.99)
+
+#create the test set
+wine_test_set <- clean(test$description)
+wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) ,weighting = weightTfIdf, tokenize=NLP_tokenizer))
+
+
+#create matrix for training
+wine_train_set <<- as.matrix(train_dtm_tfidf)
+wine_test_set <- as.matrix(wine_test_set)
+wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
+#create the test result
+wine_testing_result <- test$quality
+
+
+```
+```{r, include=TRUE}
+wine_train_set[1,]
+```
+
+Here is the result:
+```{r}
+train_svmLinear_model <- train(x= wine_train_set, y=train$quality , method = 'svmLinear3')
+
+model_svmLinear_result <- predict(train_svmLinear_model, newdata = wine_test_set)
+conf_svmLinear_train <- table(model_svmLinear_result, wine_testing_result)
+names(dimnames(conf_svmLinear_train)) <- c("Predicted class", "Actual class")
+```
+
+```{r, include=TRUE}
+train_svmLinear_model
+confusionMatrix(conf_svmLinear_train)
+```
+
+The result is quite bad, which means 2-gram is not useful. Based on my observation. After preprocess and steaming, the description is quite discrete. I mean the words are likely not connected to each other. It leads to the 2-gram model does not work.
+
++ I continue with both bag of words and 2-gram (which means 1-2gram). Here is the first line of Dtm:
+```{r}
+NLP_tokenizer <- function(x) {
+  unlist(lapply(ngrams(words(x), 1:2), paste, collapse = "_"), use.names = FALSE)
+}
+
+wine_train_set <- clean(train$description)
+
+train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf, tokenize=NLP_tokenizer))
+train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.99)
+
+
+#create the test set
+wine_test_set <- clean(test$description)
+wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) ,weighting = weightTfIdf, tokenize=NLP_tokenizer))
+
+#create matrix for training
+wine_train_set <<- as.matrix(train_dtm_tfidf)
+wine_test_set <- as.matrix(wine_test_set)
+wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
+#create the test result
+wine_testing_result <- test$quality
+
+```
+```{r, include=TRUE}
+wine_train_set[1,]
+```
+
+And here is the result:
+
+```{r}
+train_svmLinear_model <- train(x= wine_train_set, y=train$quality , method = 'svmLinear3')
+
+model_svmLinear_result <- predict(train_svmLinear_model, newdata = wine_test_set)
+
+conf_svmLinear_train <- table(model_svmLinear_result, wine_testing_result)
+names(dimnames(conf_svmLinear_train)) <- c("Predicted class", "Actual class")
+
+```
+
+```{r, include=TRUE}
+train_svmLinear_model
+confusionMatrix(conf_svmLinear_train)
+```
+
+The accuracy is slightly decreased. Good news is the False negative is slightly better. It's like the trade-off between models. Consider that and the dimension of Dtm is large (which lead to high training time), while there are too many features with 0 point. I conclude that 1-2 gram is not so useful. Overall, n-gram is not a way to improve the model.
+
+- The other attempt to improve is adjusted the weight for Dtm. As I observed in the data. The description usually talk about ingredients: lemon, cherry or region: Veneto... So, the first idea is double the point for nouns and see how it works. On the other hand, Adjective used to describe the flavor of wine could make an important role. So, the second ideal is double the point for adj only.
+To do these. I implement POS tagger and see which word is nouns, adj, verb... 
+Here are the list nouns that I extracted:`
+
+```{r}
+wine_train_set <- clean(train$description)
+
+train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf))
+train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.99)
+
+#create the test set
+wine_test_set <- clean(test$description)
+wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) ,weighting = weightTfIdf))
+#wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) , tokenize=NLP_tokenizer))
+
+#create matrix for training
+wine_train_set <<- as.matrix(train_dtm_tfidf)
+wine_test_set <- as.matrix(wine_test_set)
+wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
+#create the test result
+wine_testing_result <- test$quality
+
+
+#tagPos
+tagPOS <-  function(x, ...) {
+  s <- as.String(x)
+  word_token_annotator <- Maxent_Word_Token_Annotator()
+  a2 <- Annotation(1L, "sentence", 1L, nchar(s))
+  a2 <- NLP::annotate(s, word_token_annotator, a2)
+  a3 <- NLP::annotate(s, Maxent_POS_Tag_Annotator(), a2)
+  a3w <- a3[a3$type == "word"]
+  POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
+  POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
+  list(POStagged = POStagged, POStags = POStags)
+}
+
+#extract nouns and adj
+tag <- tagPOS(Terms(train_dtm_tfidf))
+tag <- tag$POStags
+noun_id <- which( tag=="NN")
+nouns <- colnames(wine_train_set)[noun_id]
+adj_id <- which( tag=="JJ")
+adj <- colnames(wine_train_set)[adj_id]
+
+```
+
+```{r, include=TRUE}
+nouns
+```
+
+Here is the adjective list:
+```{r, include=TRUE}
+adj
+```
+
+
+```{r}
+
+column_id <- c()
+
+#multify for noun
+for (i in 1:dim(wine_train_set)[2]) {
+  check <- colnames(wine_train_set)[i] %in% nouns
+  if(check)
+    {
+      column_id <- c(column_id, i)
+    }
+}
+
+wine_train_set[,column_id] <- wine_train_set[,column_id]*2
+wine_test_set[,column_id] <- wine_test_set[,column_id]*2
+
+```
+
+```{r, include=TRUE}
+wine_train_set[1,]
+```
+
+Here is the resut:
+```{r}
+train_svmLinear_model <- train(x= wine_train_set, y=train$quality , method = 'svmLinear3')
+
+model_svmLinear_result <- predict(train_svmLinear_model, newdata = wine_test_set)
+conf_svmLinear_train <- table(model_svmLinear_result, wine_testing_result)
+names(dimnames(conf_svmLinear_train)) <- c("Predicted class", "Actual class")
+
+```
+
+```{r, include=TRUE}
+train_svmLinear_model
+confusionMatrix(conf_svmLinear_train)
+```
+
+We can see that accuracy is slightly increasing (just 0.3%). FN is slightly decreasing. Although the number of FP is increasing but overall, I conclude that the model is better. 
+
+Now double the point only for adjectives:
+
+```{r}
+#remove double point for nouns
+wine_train_set[,column_id] <- wine_train_set[,column_id]/2
+wine_test_set[,column_id] <- wine_test_set[,column_id]/2
+
+#multify for adj
+column_id <- c()
+for (i in 1:dim(wine_train_set)[2]) {
+  check <- colnames(wine_train_set)[i] %in% adj
+  if(check)
+    {
+      column_id <- c(column_id, i)
+    }
+}
+
+wine_train_set[,column_id] <- wine_train_set[,column_id]*2
+wine_test_set[,column_id] <- wine_test_set[,column_id]*2
+
+```
+
+```{r, include=TRUE}
+wine_train_set[1,]
+```
+
+And here is the result:
+```{r}
+train_svmLinear_model <- train(x= wine_train_set, y=train$quality , method = 'svmLinear3')
+
+model_svmLinear_result <- predict(train_svmLinear_model, newdata = wine_test_set)
+conf_svmLinear_train <- table(model_svmLinear_result, wine_testing_result)
+names(dimnames(conf_svmLinear_train)) <- c("Predicted class", "Actual class")
+
+```
+
+```{r, include=TRUE}
+train_svmLinear_model
+confusionMatrix(conf_svmLinear_train)
+```
+
+The accuracy is just increasing 0.2%. But the FN is decreasing 29 units, quite impressive. TP for the excellent class is also higher. Although FN is also higher. **I conclude that the best model for "good" - "excellent" wine classify is SVM linear with double tf-idf point for adjectives.**
+To explain why double the point for adj is better than double the point for nouns. When reviewing the dataset. I see there are two reasons: Firstly, most important nouns is the ingredients, country, region... They can use the same ingredients, but the experts may have some unique techniques to make it become excellent wine. So, nouns are not so helpful. But adjective, which means the tease or the properties of the wines will show clearly the difference between good and excellent wine. Secondly, because I steam when process data. Many original words are steamed to nouns but it is not the nouns in the original paragraph. (we can see that the number of nouns is higher than the number of adjectives) Which leads to the method is not as useful as expected.
+
+Here is the final result if I try with 100% of data:
+```{r}
+wine_train_set_full <- clean(train_full$description)
+
+train_dtm_tfidf_full <- DocumentTermMatrix(wine_train_set_full, control = list(weighting = weightTfIdf))
+train_dtm_tfidf_full <- removeSparseTerms(train_dtm_tfidf_full, 0.99)
+
+#create the test set
+wine_test_set_full <- clean(test_full$description)
+wine_test_set_full <- DocumentTermMatrix(wine_test_set_full, control = list(dictionary = Terms(train_dtm_tfidf_full) ,weighting = weightTfIdf))
+#wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) , tokenize=NLP_tokenizer))
+
+#create matrix for training
+wine_train_set_full <<- as.matrix(train_dtm_tfidf_full)
+wine_test_set_full <- as.matrix(wine_test_set_full)
+wine_test_set_full <- wine_test_set_full[,Terms(train_dtm_tfidf_full)]
+#create the test result
+wine_testing_result_full <- test_full$quality
+
+tag_full <- tagPOS(Terms(train_dtm_tfidf_full))
+tag_full <- tag_full$POStags
+adj_id_full <- which( tag_full=="JJ")
+adj_full <- colnames(wine_train_set)[adj_id]
+
+column_id_full <- c()
+
+#multify for noun
+for (i in 1:dim(wine_train_set_full)[2]) {
+  check <- colnames(wine_train_set_full)[i] %in% adj_full
+  if(check)
+    {
+      column_id_full <- c(column_id_full, i)
+    }
+}
+
+wine_train_set[,column_id_full] <- wine_train_set[,column_id_full]*2
+wine_test_set[,column_id_full] <- wine_test_set[,column_id_full]*2
+
+
+train_svmLinear_model_final1 <- train(x= wine_train_set_full, y=train_full$quality , method = 'svmLinear3')
+
+model_svmLinear_result_final1 <- predict(train_svmLinear_model_final1, newdata = wine_test_set_full)
+
+
+conf_svmLinear_train_final1 <- table(model_svmLinear_result_final1, wine_testing_result_full)
+names(dimnames(conf_svmLinear_train_final1)) <- c("Predicted class", "Actual class")
+
+
+```
+
+```{r, include=TRUE}
+train_svmLinear_model_final1
+confusionMatrix(conf_svmLinear_train_final1)
+```
+
+Result....
+
+#Second aspect: High value wine
+## The problem
+In most of the time, the price of the bottle can reflect the quality of the wine. For example, If you want to buy excellent wine, choose the 1000$ bottle. That method should work. But, most of us don't have the financial condition for buying like this. The point is if we have a limit amount of money, or we just don't want to pay too much for a bottle, how can we choose? It's my idea for the second problem: Spend money in the right way. Let's take a look at the price of our data: 
+```{r}
+boxplot(wine$price, main = "Box plot of the price")
+boxplot(log(wine$price), main = " Boxplot of log of the price")
+```
+Because the price range quite big, have a lot of outliers and high value of SD. otherwise, the log of the price looks better and quite similar to the point. 
+
+## Aim
+I define the $Value = \frac {points} {log(price)}$ Here is the value:
+
+```{r}
+boxplot(wine$value, main = "Value of the price")
+```
+
+The median number for value is ~27. So the bottle with a higher value than 27 will have a "high" benefit. The rest have "medium" benefit. This way of define class will make all data become interesting. For example. there is a bottle with just 4$ but have 80 points. It becomes the bottle with the highest benefit. In contrast. many bottles with the price higher than 1000 dollar. Of course, they are an excellent wine. But is just have a medium benefit because it's too expensive.
+
+I do the same preprocessing for the text. Then continue to compare models with sample 20% of the data. Here is the result.
+
+![NB benefit](NB_benefit.png)
+
+
+![NB benefit predict](NB_benefit_predict.png)
+
+![SVM benefit](SVMLinear_benefit.png)
+
+![SVMLinear_benefit](SVMLinear_benefit_predict.png)
+
+As we can see, SVM Linear is better than Nb in both accuracy and how the bottle is classified. Now I'll try with POS Tagger
+
+Here is the result when double the point for nouns:
+![SVMLinear benefit predict double point for nouns](SVMLinear_benefit_predict_2N.png)
+
+And here is the result when double the point for adjectives:
+![SVM benefit predict double point for adj](SVMLinear_benefit_predict_2adj.png)
+
+```{r, eval=FALSE}
+#remove for adj
+for (i in 1:dim(wine_train_set)[2]) {
+  check <- colnames(wine_train_set)[i] %in% nouns
+  if(check)
+    {
+      column_id <- c(column_id, i)
+    }
+}
+
+wine_train_set[,column_id] <- wine_train_set[,column_id]/2
+wine_test_set[,column_id] <- wine_test_set[,column_id]/2
+
+wine_testing_result <- test$benefit
+
+```
+
+```{r, eval=FALSE}
+train_nb_model2 <- train(x= wine_train_set, y=train$benefit , method = 'naive_bayes')
+train_nb_model2
+model_nb_result2 <- predict(train_nb_model2, newdata = wine_test_set)
+
+conf_nb_train2 <- table(model_nb_result2, wine_testing_result)
+names(dimnames(conf_nb_train2)) <- c("Predicted class", "Actual class")
+confusionMatrix(conf_nb_train2)
+```
+
+```{r, eval=FALSE}
+train_svmLinear_model2 <- train(x= wine_train_set, y=train$benefit , method = 'svmLinear3')
+train_svmLinear_model2
+
+```
+
+```{r, eval=FALSE}
+model_svmLinear_result2 <- predict(train_svmLinear_model2, newdata = wine_test_set)
+
+conf_svmLinear_train2 <- table(model_svmLinear_result2, wine_testing_result)
+names(dimnames(conf_svmLinear_train2)) <- c("Predicted class", "Actual class")
+confusionMatrix(conf_svmLinear_train2)
+
+```
+
+```{r}
+#Return the original value
+wine_train_set[,column_id_full] <- wine_train_set[,column_id_full]/2
+wine_test_set[,column_id_full] <- wine_test_set[,column_id_full]/2
+
+wine_testing_result_full <- test_full$benefit
+
+train_svmLinear_model_final2 <- train(x= wine_train_set_full, y=train_full$benefit , method = 'svmLinear3')
+
+model_svmLinear_result_final2 <- predict(train_svmLinear_model_final2, newdata = wine_test_set_full)
+
+conf_svmLinear_train_final2 <- table(model_svmLinear_result_final2, wine_testing_result_full)
+names(dimnames(conf_svmLinear_train_final2)) <- c("Predicted class", "Actual class")
+
+```
+
+
+In this case, POS Tagger doesn't show any clear effect either with double the point for nouns or adjective. All indicator is more or less the same, or even worse. As I said before, The way of classifying here is quite strange. I still don't too much ideal about how the description should be for each class.
+
+**I conclude that the final model for "high" - "medium" wine value classify is SVM linear with tf-idf, bag of words**
+
+Here is the final result for this model:
+```{r, include=TRUE}
+train_svmLinear_model_final2
+confusionMatrix(conf_svmLinear_train_final2)
+```
+
+
+# Futher discusssion
+##Suggession for choosing wine
+In this section, I'll extract the top 20 influences of each model. 
+Here is the result from the SVM Linear for "good" - "excellent" wine model. 
+```{r, include=TRUE}
+varImp(train_svmLinear_model_final1)
+```
+Suggesstion for choosing wine:...
+
+Here is the top influences from the SVM Linear for "good" - "excellent" wine model.
+
+```{r, include=TRUE}
+varImp(train_svmLinear_model_final2)
+```
+
+Suggesstion for choosing wine:...
+
+##Future work:
+- Here are some points that can improve from the project:
+  + Check again the SVM RBF kernel with a bigger data set and more powerful computer. In my experiments, SVM RBF is better than SVM Linear in most the cases. 
+ + Take the advice from wine specialist to improve the model. In my opinion, we should fully understand the dataset before thinking about machine learning. In this case. Because my knowledge of wine is limited. I often don't clearly understand about a bottle after reading the description. It leads to the ideal about improve the model is limited.
+
+# Conclusion
+The issues raised at the beginning are solved with a good result. We figure out that the description and other information printed in a bottle can bring us some ideal about how good the bottle is or how high level of benefit it has. We also have some idea about how can we choose a bottle. In the NLP and ML aspect. SVM linear with double tf-idf point for the adjective is the best model for predicting the quality with aa% accuracy and bb% for FN. For predicting the benefit of a bottle, SVM linear is an acceptable model, with accuracy aa% and FN cc%
+
+# References
+1. Slide of this course
+2. https://fderyckel.github.io/2016-12-07-Texts_Classification_in_R/
+3. https://www.kaggle.com/carkar/classifying-wine-type-by-review
+4. https://stackoverflow.com/questions/28764056/could-not-find-function-tagpos
+
+# Apendix
+This report is writen ussing Rmarkdown and adjust by word document. Here is the code used in this project.
+```{r, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+```

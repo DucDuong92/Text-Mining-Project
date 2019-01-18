@@ -36,14 +36,14 @@ wine$description <- iconv(wine$description, from = "UTF-8", to = "ASCII", sub = 
 # split train/test
 n = dim(wine)[1]
 set.seed(12345)
-# id = sample(1:n, floor(n*0.8))
-# train = wine[id,]
-# test = wine[-id,]
+id = sample(1:n, floor(n*0.8))
+train = wine[id,]
+test = wine[-id,]
 
 #small for test model
 id2 = sample(1:n, floor(n*0.2))
 wine_sample <- wine[id2,]
-#wine2 <- wine[id2,]
+wine2 <- wine[id2,]
 n2 = length(id2)
 id_test = sample(1:n2, floor(n2*0.8))
 train = wine_sample[id_test,]
@@ -77,22 +77,18 @@ clean <- function(text_vector)
     return(wine_corpus)
   }
 
-NLP_tokenizer <- function(x) {
-  unlist(lapply(ngrams(words(x), 1:1), paste, collapse = "_"), use.names = FALSE)
-}
-
 ##create the train set
 wine_train_set <- clean(train$description)
-
-#corpus <- Corpus(VectorSource(texts))
-#matrix <- DocumentTermMatrix(corpus,control=list(tokenize=tokenize_ngrams))
 
 train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting = weightTfIdf, tokenize=NLP_tokenizer))
 #train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list( tokenize=NLP_tokenizer))
 #train_dtm_tfidf <- DocumentTermMatrix(wine_train_set)
 train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.99)
 
-#wine_train_set <- cbind(wine_train_set, train$quality)
+
+NLP_tokenizer <- function(x) {
+  unlist(lapply(ngrams(words(x), 1:1), paste, collapse = "_"), use.names = FALSE)
+}
 
 #create the test set
 wine_test_set <- clean(test$description)
@@ -104,43 +100,44 @@ wine_train_set <<- as.matrix(train_dtm_tfidf)
 wine_test_set <- as.matrix(wine_test_set)
 wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
 #create the test result
-wine_testing_result <- test$quality
+wine_testing_result <- test$benefit
 
 
-# #tagPos
-# tagPOS <-  function(x, ...) {
-#   s <- as.String(x)
-#   word_token_annotator <- Maxent_Word_Token_Annotator()
-#   a2 <- Annotation(1L, "sentence", 1L, nchar(s))
-#   a2 <- annotate(s, word_token_annotator, a2)
-#   a3 <- annotate(s, Maxent_POS_Tag_Annotator(), a2)
-#   a3w <- a3[a3$type == "word"]
-#   POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
-#   POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
-#   list(POStagged = POStagged, POStags = POStags)
-# }
+#tagPos
+tagPOS <-  function(x, ...) {
+  s <- as.String(x)
+  word_token_annotator <- Maxent_Word_Token_Annotator()
+  a2 <- Annotation(1L, "sentence", 1L, nchar(s))
+  a2 <- NLP::annotate(s, word_token_annotator, a2)
+  a3 <- NLP::annotate(s, Maxent_POS_Tag_Annotator(), a2)
+  a3w <- a3[a3$type == "word"]
+  POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
+  POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
+  list(POStagged = POStagged, POStags = POStags)
+}
 
-# #Weight for nouns:
-# tag <- tagPOS(Terms(train_dtm_tfidf))
-# tag <- tag$POStags
-# noun_id <- which( tag=="NN")
-# nouns <- colnames(wine_train_set)[noun_id]
-# adj_id <- which( tag=="JJ")
-# adj <- colnames(wine_train_set)[adj_id]
-# 
-# column_id <- c()
-# 
-# #multify for noun
-# for (i in 1:dim(wine_train_set)[2]) {
-#   check <- colnames(wine_train_set)[i] %in% adj
-#   if(check) 
-#     {
-#       column_id <- c(column_id, i)
-#     }
-# }
-# 
-# wine_train_set[,column_id] <- wine_train_set[,column_id]*5
-# wine_test_set[,column_id] <- wine_test_set[,column_id]*5
+#Weight for nouns:
+tag <- tagPOS(Terms(train_dtm_tfidf))
+tag <- tag$POStags
+noun_id <- which( tag=="NN")
+nouns <- colnames(wine_train_set)[noun_id]
+adj_id <- which( tag=="JJ")
+adj <- colnames(wine_train_set)[adj_id]
+
+column_id <- c()
+
+#multify for noun
+column_id <- c()
+for (i in 1:dim(wine_train_set)[2]) {
+  check <- colnames(wine_train_set)[i] %in% adj
+  if(check)
+    {
+      column_id <- c(column_id, i)
+    }
+}
+
+wine_train_set[,column_id] <- wine_train_set[,column_id]*2
+wine_test_set[,column_id] <- wine_test_set[,column_id]*2
 
 # Trainning model
 library(caret)
@@ -163,26 +160,22 @@ library(caret)
 #colnames(wine_train_set)[ncol(wine_train_set)] <- "y"
 #wine_train_set <- as.data.frame(wine_train_set)
 #wine_train_set$y <- as.factor(wine_train_set$y)
-#train_model <- train(x= wine_train_set, y=train$quality , method = 'svmLinear3')
-train_nb_model <- train(x= wine_train_set, y=train$quality , method = 'naive_bayes')
-#train_model <- train(x= wine_train_set, y=train$quality , method = 'svmRadial')
+train_svm_model <- train(x= wine_train_set, y=train$benefit , method = 'svmLinear3')
+#train_nb_model <- train(x= wine_train_set, y=train$benefit , method = 'naive_bayes')
+#train_svmRBF_model <- train(x= wine_train_set, y=train$qual , method = 'svmRadial')
 #train_model <- train(x= wine_train_set, y=train$quality , method = 'gbm')
 #train_model <- train(x= wine_train_set, y=train$quality , method = 'nnet')
 
 
 #Build the prediction  
-model_result <- predict(train_nb_model, newdata = wine_test_set)
+model_result <- predict(train_svm_model, newdata = wine_test_set)
 
 conf_train <- table(model_result, wine_testing_result)
 names(dimnames(conf_train)) <- c("Predicted class", "Actual class")
 confusionMatrix(conf_train)
-# check_accuracy <- as.data.frame(cbind(prediction = model_result,  classify = wine_testing_result))
-# 
-# check_accuracy <- check_accuracy %>% mutate(prediction = as.integer(prediction))
-# 
-# check_accuracy$accuracy <- if_else(check_accuracy$prediction == check_accuracy$classify, 1, 0)
-# round(prop.table(table(check_accuracy$accuracy)), 3)
 
 
 #top influence
-varImp(train_nb_model)
+varImp(train_svm_model)
+
+
