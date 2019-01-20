@@ -176,6 +176,35 @@ confusionMatrix(conf_train)
 
 
 #top influence
-varImp(train_svm_model)
+#varImp(train_svm_model)
 
+#top tf-idf
+good<- which(train$quality=="good")
+good <- wine_train_set[good,]
+excellent<- which(train$quality=="excellent")
+excellent <- wine_train_set[excellent,]
+high<- which(train$benefit=="high")
+high <- wine_train_set[high,]
+medium<- which(train$benefit=="medium")
+medium <- wine_train_set[medium,]
+
+good = data.frame(sort(colSums(good), decreasing=TRUE))
+wordcloud(rownames(good), good[,1], max.words=100, colors=brewer.pal(8, "Dark2"), main= "Top tfidf good class")
+
+excellent = data.frame(sort(colSums(excellent), decreasing=TRUE))
+wordcloud(rownames(excellent), excellent[,1], max.words=100, colors=brewer.pal(8, "Dark2"))
+
+high = data.frame(sort(colSums(high), decreasing=TRUE))
+wordcloud(rownames(high), high[,1], max.words=100, colors=brewer.pal(8, "Dark2"))
+
+medium = data.frame(sort(colSums(medium), decreasing=TRUE))
+wordcloud(rownames(medium), medium[,1], max.words=100, colors=brewer.pal(8, "Dark2"))
+
+
+ggplot(subset(wine, price <= 100),
+       aes(x = price, y = points)) +
+  geom_point(alpha = 0.3,  position = position_jitter()) + 
+  stat_smooth(method = "lm", size =2) +
+  labs(title = 'Price vs Point for Wines $100 and Under') +
+  theme_bw()
 
