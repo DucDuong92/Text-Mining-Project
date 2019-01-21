@@ -20,19 +20,20 @@ knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE, include=FALSE)
 ```
 
 # Abstract
-Wine sensory examination and assessment is never easy, even with a wine specialist. However, the description which is printed on each bottle can bring us some helpful information. Base on that ideal, I decided to analyze the data about wine review (take form Kaggle) and help the consumers make the decision on two different aspects. The first one is which is a good and excellent wine. The second aspect is which is the valueble bottle (high value with a acceptable amount of money). I use different techniques to process the text data, then compare Naive Bayes, SVM linear and SVM RBF kernel when building the best model for predicting. The final results are quite impressive with accuracy 78.69% for the first issue and 77.09% for the second one. Base on these model, some suggestions are provided for the consumers to choose a satisfied bottle.
+Wine sensory examination and assessment is never easy, even with a wine specialist. However, the description printed on each bottle can bring us some helpful information. Based on that ideal, I decided to analyze the data about wine review (taken form Kaggle) and help the consumers make the decision on two different aspects. The first one is distinguish good and excellent wine. The second aspect is investigating the finance beneficial bottle (high value with an acceptable amount of money). Different natural language processing(NLP) techniques are applied to process the text data. Then I compare Naive Bayes, SVM linear and SVM RBF kernels when building the best model for predicting. The final results are quite impressive with accuracy 78.69% for the first issue and 77.09% for the second one. Based on these models, some suggestions are provided for the consumers to choose satisfied bottles.
 
 # Introduction
 ## Motivation
-I always confuse when standing in a wine cellar. How can I choose an excellent wine for my family? What is the best wine I can choose with my budget? The problem can be solved easier if I had a good sense. But, sadly, I don't, like many people in this world. The problems still continue when I listen to the advice of the salesman and even taste some wine. So, I usually choose randomly a bottle based on these advices for my event. Unluckily, sometimes my relatives don't think that it is an excellent wine.
+While standing in a wine cellar, I was always confusing with a lot of question: How can I choose an excellent wine for my family? What is the best wine fitted with my budget? The problem could be solved easier if I had a good sense. But, sadly, like many people in the world, I don't. The problems still continue when I listen to the advice of the salesman and even taste some wine. So, I usually choose randomly a bottle based on this advice for my events. Unluckily, sometimes my relatives didn't think that it was an excellent wine.
 
 ## Aim
-I guess that the information from the provider (description, country, region, designation...) should bring some important information. So, I try to solve the problems base on text mining ideal: Take the wine data which is already reviewed and marked by some specialists, then process these data together with the points and build a model to prediction in order to figure out which bottle is good or excellent, which one have high benefit or just medium.
+I guess that the information from the provider (description, country, region, designation.) should bring some important information. So, I try to solve the problems base on text mining ideal: Take the wine data which is already reviewed and marked by some specialists, then process these data together with the points and build a model to prediction in order to figure out which bottle is good or excellent, which one have high benefit or just medium.  
+
 ## Content of this report
-In this report, Firstly, I will provide information about the data as well as the way I define the class for each bottle. Then, I briefly summary relevant theory. The method I used will be presented in details. It includes the steps for preprocessing, techiques for comparing and choosing the best model. Finally is some suggestions for choosing wine, some discussions and my conclusion.
+In this report, Firstly, I will provide information about the data as well as define the class for each bottle. Then, I briefly summary relevant theory. The method I used will be presented in details. It includes the steps for preprocessing, techniques for comparing and choosing the best model. Finally, there are some suggestions for choosing wine, some discussions and my conclusion.
 
 # Data
-Wine review data is taken form Kaagle ([link](https://www.kaggle.com/zynicide/wine-reviews)). I choose the second .csv version of this dataset. In this version, duplicated data is removed. The data include 120975 samples about wine. Each sample contains the following information: country, description, designation, points, price, province, region, more specific region (region2), tester name, taster_twitter handle, title, variety, and winery. Here is the overlook of the data:
+Wine review data is taken form Kaggle ([link](https://www.kaggle.com/zynicide/wine-reviews)). I choose the second .csv version of this dataset. In this version, duplicated data is removed. The data include 120975 samples about wine. Each sample contains the following information: country, description, designation, points, price, province, region, more specific region (region2), tester name, taster_twitter handle, title, variety, and winery. Here is the overlook of the data:
 ```{r}
 wine <- read.csv("C:/Users/Duong Minh Duc/Documents/GitHub/Text-Mining-Project/wine.csv")
 ```
@@ -41,14 +42,14 @@ wine <- read.csv("C:/Users/Duong Minh Duc/Documents/GitHub/Text-Mining-Project/w
 head(wine)
 ```
 
-Points are important information in this data. Points are marked by wine specialists, which make it reliable. The owner only public data which have at least 80 point (out of 100) which means the data contain only good and excellent wine.
+Points are important information in this data. Points are marked by wine specialists, which make it reliable. The owner only public data which have at least 80 points (out of 100) which means the data contain only good and excellent wine.
 Here is the distribution of the points:
 ```{r, include=TRUE}
 boxplot(wine$points, main="Boxplot of points")
 ```
 
 ## Theory
-In this section, I will briefly talk about some theory in nature language processing(NLP) and machine learning(ML) in a simple way of reviewing. For some terms, only the aspect that relevant to this project is presented. I assume that the reader already has some basic knowledge about NLP and ML before(this part is not a guide for a person with a blank background). I also noticed that we are processing the text written in English.
+In this section, I will briefly talk about some theory in natural language processing(NLP) and machine learning(ML) in a simple way of reviewing. For some terms, only the aspect that relevant to this project is presented. I assume that the reader already has some basic knowledge about NLP and ML before(this part is not a guide for a person with a blank background). I also noticed that we are processing the text written in English.
 
 * Terms in preprocessing:  
   + Stop words: This is the term for useless words in the text. To be specific, these words usually have no (or very low) meaning but represent a lot. For example: a, an, the... When processing text data. We usually remove these words.  
@@ -87,7 +88,7 @@ Naive-Bayes theory make an asump that all features are independent. The assumpti
 * Part-Of-Speech Tagger (POS Tagger): This is the method to process text and decided each word is nouns, ajdtive, adverb...
 
 ## Method
-In this part, I'll talk about the method for the first problem of this project: Which is the "good" and "excellent" wine. The second problem about wine that has "high" and "medium" value is solved using a similar method but will be discussed in details in a different part.
+In this part, I would like to discuss about the method for the first problem of this project: Which is the "good" and "excellent" wine. The second problem about wine that has "high" and "medium" value is solved using a similar method but will be discussed in details in a different part.
 
 * Define the class:
 The first step is to define the class for each document. Base on the distribution of the point, I will take the point 88 as the boundary because it is the median value, which will make the data become balance. So, the wine that has higher than 88 will be the excellent wine, while the rest is the good wine.
@@ -97,7 +98,7 @@ The first step is to define the class for each document. Base on the distributio
   
   + Make the text ready: I decided that the information about the country, designation, province, region, and wine variety is important. So, I decided to merge that information into the description as a paragraph. That paragraph is the one that I will process.
   
-  + Language convert: In the data set. there is some name of variety that is not unified (same type but written in the different language). So I convert it to the most famous word as follow:
+  + Language convert: In the data set. there is some variety that is not unified (same type but written in the different language). So I convert it to the most famous word as follow:
   
     ++ Replace German names with English names: "weissburgunder" is replaced as "chardonnay". "spatburgunder" is replaced as "pinot noir". "grauburgunder" is replaced as "pinot gris".    
     ++ Replace the Spanish "garnacha"" with the french "grenache".  
@@ -135,7 +136,7 @@ At this step, I'll use the ready Dtm for training model, then test with the test
 * Final result: Final model is selected and run again with 100% data. The final result is reported based on this model.
 
 ## Result and explain
-* Firstly, Let's takes a look at the original paragraph and the paragraphs after preprocessing to see how it work:
+* Firstly, Let's take a look at the original paragraph and the paragraphs after preprocessing to see how it works:
 ```{r}
 # Use for check the not available and duplicate data, but not necessary
 wine <- na.omit(wine)
@@ -294,7 +295,7 @@ confusionMatrix(conf_svmLinear_train)
 
 As we can see in the result, The accuracy when training data for NB, SVM Linear and SVM RBF is 75.1%, 78.6%, and 81.1%. As a result, I expected that the accuracy when testing with test data will be similar. But they are 74.68% for NB, 78.59% for SVM Linear and 71.36%. SVM Linear is the kernel which has the highest value of accuracy for testing. Noticed that No information rate (NIR) 0.5323 mean that a class takes 53.23%(Good class), which mean the data is balanced. We can judge that the model is actually work.
 
-But, accuracy is just one side of the story. Let see about the classification: We have two classes "good" and "excellent". If the class is predicted exactly, it's perfect. Obviously, excellent wine is better than good wine. So, if a good wine is predicted as excellent wine, it's hard to accept (Similar to false negative-FN). In contrast, If you pretend to buy good wine but have excellent wine. You are just lucky and nothing happened. (similar with false positive-FP)
+But, accuracy is just one side of the story. Let see about the classification: We have two classes "good" and "excellent". If the class is predicted exactly, it's perfect. Obviously, excellent wine is better than good wine. So, if a good wine is predicted as excellent wine, it's hard to accept (Similar to false negative-FN). In contrast, If you pretend to buy good wine but have excellent wine. You were just lucky and nothing happened. (similar to false positive-FP)
 
 SVM RBF kernel show the lowest number of false negative. But, I also see that the predicted result is biased to the "good" class: The number of good wine is predicted is triple as the number of excellent wine. It's quite hard for understand. On the other hand, SVM Linear is better than NB in all indicators.
 
@@ -346,7 +347,7 @@ train_svmLinear_model
 confusionMatrix(conf_svmLinear_train)
 ```
 
-The result is worse than the previous in all indicator, which means 2-gram is not useful. Based on my observation. After preprocess and steaming, the description is quite discrete. I mean the words are likely not connected to each other. It leads to the 2-gram model does not work.
+The result is worse than the previous in all indicators, which means that 2-gram is not useful. Based on my observation. After preprocess and steaming, the description is quite discrete. I mean the words are likely not connected to each other. It leads to the 2-gram model does not work.
 
   + I continue with both bag of words and 2-gram (which means 1-2gram). Here is the first line of Dtm:
 ```{r}
@@ -535,12 +536,12 @@ confusionMatrix(conf_svmLinear_train)
 
 It's clearly that this model is more or less the same with the original one. **I conclude that the best model for "good" - "excellent" wine classify is SVM linear with 1-2gram.**
 
-To explain why double the point is not working. When reviewing the dataset. I see there are three reasons: Firstly, most important nouns is the ingredients, country, region... They can use the same ingredients, plant in the same region. But, the experts may have some unique techniques to make it become excellent wine.  So, nouns are not so helpful. I also see that only famous ingredients are mentioned. Maybe they the secret one is not public. Secondly, because I steam when process data. Many original words are steamed to nouns but it is not the nouns in the original paragraph. (we can see that the number of nouns is higher than the number of adjectives) Which leads to the method is not as useful as expected. Finally, One factor can affect the system is POS tagger doesn't work perfectly, especially in the adjective list. For example, the word "blackberri" should be in the noun list but it appears in the adjective list, and vice versa for the words "yellow". 
+To explain why double the point is not working. When reviewing the dataset. I see there are three reasons: Firstly, most important nouns is the ingredients, country, region... They can use the same ingredients, plant in the same region. But, the experts may have some unique techniques to make it become excellent wine.  So, nouns are not so helpful. I also see that only famous ingredients are mentioned. Maybe the secret one is not public. Secondly, because I steam when process data. Many original words are steamed to nouns but it is not the nouns in the original paragraph. (we can see that the number of nouns is higher than the number of adjectives) Which leads to the method is not as useful as expected. Finally, One factor can affect the system is POS tagger doesn't work perfectly, especially in the adjective list. For example, the word "blackberri" should be in the noun list but it appears in the adjective list, and vice versa for the words "yellow". 
 
 
 #Second aspect: High value wine
 ## The problem
-In most of the time, the price of the bottle can reflect the quality of the wine. For example, If you want to buy excellent wine, choose the 1000$ bottle. That method should work. But, most of us don't have the financial condition for buying like this. The point is if we have a limit amount of money, or we just don't want to pay too much for a bottle, how can we choose? It's my idea for the second problem: Spend money in the right way.
+In most of the times, the price of the bottle can reflect the quality of the wine. For example, when you want to buy excellent wine, choose the 1000$ bottle. That method should work. But, most of us don't have the financial condition for buying like this. The point is if we have a limit amount of money, or we just don't want to pay too much for a bottle, how can we choose? It's my idea for the second problem: Spend money in the right way.
 
 Just want to confirm that the problem is real and solvable. Let see the scatter plot of price vs points for wines 100$ and under:
 ```{r, include=TRUE}
@@ -552,22 +553,22 @@ ggplot(subset(wine, price <= 100),
   theme_bw()
 ```
 
-As we can see. There is a positive relationship between the points and the price. But, the points for bottles with the same price can be very different. Very cheap wine(<10$) can have up to 92 points while many 25 dollar wines just have less than 85 points.  
+As we can see, there is a positive relationship between the points and the price. But, the points for bottles with the same price can be very different. Very cheap wine(<10$) can have up to 92 points while many 25 dollar wines just have less than 85 points.  
 
-The thing that I see from this graph is: We can have a strategy for choosing excellent wine with a low budget, while there is a high probability of having just a good bottle when choosing randomly even with a quite high price (~50$). 
+The thing that I see from this graph is: We can have a strategy for choosing excellent wine with a low budget, while there is a high probability of having just a good bottle when choosing randomly even with a quite high price (~50$).
 
 ##Aim
-The aim is similar with the first problem: Using NLP and compare ML kernel to solve this problems.
+The aim is similar to the first problem: Using NLP and compare ML kernels to solve this problems.
 
 ## Method and result
 Let's take a look at the price of our data: 
 ```{r, include=TRUE}
 par(mfrow=c(1,2))
 boxplot(wine$price, main = "Box plot of the price")
-boxplot(log(wine$price), main = " Boxplot of log of the price")
+boxplot(log(wine$price), main = " Box plot of log(price)")
 ```
 
-The price range quite high. Prices have a lot of outliers and high value of SD. otherwise, the log of the price looks better and quite similar to the point. 
+The price has a wide range. It also has a lot of outliers and high value of SD. otherwise, the log of the price looks better and quite similar to the point. 
 
 I define the $Value = \frac {points} {log(price)}$ Here is the value:
 
@@ -663,7 +664,7 @@ wordcloud(rownames(high), high[,1], max.words=100, colors=brewer.pal(8, "Dark2")
 wordcloud(rownames(medium), medium[,1], max.words=100, colors=brewer.pal(8, "Dark2"), scale=c(4,.5))
 ```
 
-Suggesstion for choosing wine: Suggestions for choosing wine: "franc" (France) and "itali" (Italy) likely have more high-value bottle than medium. "spain" (Spain), "carbenet", "appl" (apply), "pear", "cherri" are words for high benefit.  "valley", "black", "champagn" are considered when looking for a medium benefit wine.
+Suggesstions for choosing wine: Suggestions for choosing wine: "franc" (France) and "itali" (Italy) likely have more high-value bottle than medium. "spain" (Spain), "carbenet", "appl" (apply), "pear", "cherri" are words for high benefit.  "valley", "black", "champagn" are considered when looking for a medium benefit wine.
 
 ##Future work:
 * Here are some points that can improve from the project:
@@ -676,7 +677,7 @@ Suggesstion for choosing wine: Suggestions for choosing wine: "franc" (France) a
 
  
 # Conclusion
-The issues raised at the beginning are solved with a good result. We figure out that the description and other information printed in a bottle can bring us some ideal about how good the bottle is or how high level of benefit it has. We also have some idea about how can we choose a satified bottle. In the NLP and ML aspect. SVM linear with 1-2gram is the best model for predicting the quality with 78.69% accuracy. For predicting the benefit of a bottle, SVM linear is an acceptable model, with accuracy 77.09%.
+The issues raised at the beginning are solved with a good result. We figure out that the description and other information printed in a bottle can bring us some ideal about how good the bottle is or how high level of benefit it has. We also have some idea about how can we choose a satisfied bottle. In the NLP and ML aspect. SVM linear with 1-2gram is the best model for predicting the quality with 78.69% accuracy. For predicting the benefit of a bottle, SVM linear is an acceptable model, with accuracy 77.09%.
 
 # References
 1. Slide of this course
@@ -685,6 +686,6 @@ The issues raised at the beginning are solved with a good result. We figure out 
 4. https://stackoverflow.com/questions/28764056/could-not-find-function-tagpos
 
 # Apendix
-Here is the code used in this project. For some models that require a long time for trainning, I run it independently and attach the pitures of results.
+Here is the code used in this project. For some models that require a long time for training, I run it independently and attach the pictures of results.
 ```{r, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE, include=TRUE}
 ```
