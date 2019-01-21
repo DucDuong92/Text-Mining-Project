@@ -16,7 +16,6 @@ wine$description <- as.character(wine$description)
 
 #Convert Wine type language
 #Replace german names with English names for wines
-
 wine$description <- gsub("weissburgunder", "chardonnay", wine$description)
 wine$description <- gsub("spatburgunder", "pinot noir", wine$description)
 wine$description <- gsub("grauburgunder", "pinot gris", wine$description)
@@ -46,6 +45,13 @@ id_test = sample(1:n2, floor(n2*0.8))
 train = wine_sample[id_test,]
 test = wine_sample[-id_test,]
 
+#price vs points under 100$
+ggplot(subset(wine, price <= 100),
+       aes(x = price, y = points)) +
+  geom_point(alpha = 0.3,  position = position_jitter()) + 
+  stat_smooth(method = "lm", size =2) +
+  labs(title = 'Price vs Point for Wines $100 and Under') +
+  theme_bw()
 
 #Process text and create corpus
 library(dplyr)
@@ -86,8 +92,6 @@ train_dtm_tfidf <- DocumentTermMatrix(wine_train_set, control = list(weighting =
 train_dtm_tfidf <- removeSparseTerms(train_dtm_tfidf, 0.99)
 
 
-
-
 #create the test set
 wine_test_set <- clean(test$description)
 wine_test_set <- DocumentTermMatrix(wine_test_set, control = list(dictionary = Terms(train_dtm_tfidf) ,weighting = weightTfIdf, tokenize=NLP_tokenizer))
@@ -101,49 +105,45 @@ wine_test_set <- wine_test_set[,Terms(train_dtm_tfidf)]
 wine_testing_result <- test$benefit
 
 
-# #tagPos
-# tagPOS <-  function(x, ...) {
-#   s <- as.String(x)
-#   word_token_annotator <- Maxent_Word_Token_Annotator()
-#   a2 <- Annotation(1L, "sentence", 1L, nchar(s))
-#   a2 <- NLP::annotate(s, word_token_annotator, a2)
-#   a3 <- NLP::annotate(s, Maxent_POS_Tag_Annotator(), a2)
-#   a3w <- a3[a3$type == "word"]
-#   POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
-#   POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
-#   list(POStagged = POStagged, POStags = POStags)
-# }
-# 
-# #Weight for nouns:
-# tag <- tagPOS(Terms(train_dtm_tfidf))
-# tag <- tag$POStags
-# noun_id <- which( tag=="NN")
-# nouns <- colnames(wine_train_set)[noun_id]
-# adj_id <- which( tag=="JJ")
-# adj <- colnames(wine_train_set)[adj_id]
-# 
-# column_id <- c()
-# 
-# #multify for noun
-# column_id <- c()
-# for (i in 1:dim(wine_train_set)[2]) {
-#   check <- colnames(wine_train_set)[i] %in% adj
-#   if(check)
-#     {
-#       column_id <- c(column_id, i)
-#     }
-# }
-# 
-# wine_train_set[,column_id] <- wine_train_set[,column_id]*2
-# wine_test_set[,column_id] <- wine_test_set[,column_id]*2
+#tagPos
+tagPOS <-  function(x, ...) {
+  s <- as.String(x)
+  word_token_annotator <- Maxent_Word_Token_Annotator()
+  a2 <- Annotation(1L, "sentence", 1L, nchar(s))
+  a2 <- NLP::annotate(s, word_token_annotator, a2)
+  a3 <- NLP::annotate(s, Maxent_POS_Tag_Annotator(), a2)
+  a3w <- a3[a3$type == "word"]
+  POStags <- unlist(lapply(a3w$features, `[[`, "POS"))
+  POStagged <- paste(sprintf("%s/%s", s[a3w], POStags), collapse = " ")
+  list(POStagged = POStagged, POStags = POStags)
+}
+
+#Weight for nouns:
+tag <- tagPOS(Terms(train_dtm_tfidf))
+tag <- tag$POStags
+noun_id <- which( tag=="NN")
+nouns <- colnames(wine_train_set)[noun_id]
+adj_id <- which( tag=="JJ")
+adj <- colnames(wine_train_set)[adj_id]
+
+column_id <- c()
+
+#multify for noun
+column_id <- c()
+for (i in 1:dim(wine_train_set)[2]) {
+  check <- colnames(wine_train_set)[i] %in% nouns
+  if(check)
+    {
+      column_id <- c(column_id, i)
+    }
+}
+
+wine_train_set[,column_id] <- wine_train_set[,column_id]*2
+wine_test_set[,column_id] <- wine_test_set[,column_id]*2
 
 # Trainning model
 library(caret)
 
-##train old
-#colnames(wine_train_set)[ncol(wine_train_set)] <- "y"
-#wine_train_set <- as.data.frame(wine_train_set)
-#wine_train_set$y <- as.factor(wine_train_set$y)
 train_svm_model <- train(x= wine_train_set, y=train$benefit , method = 'svmLinear3')
 #train_nb_model <- train(x= wine_train_set, y=train$benefit , method = 'naive_bayes')
 #train_svmRBF_model <- train(x= wine_train_set, y=train$qual , method = 'svmRadial')
@@ -153,14 +153,12 @@ train_svm_model <- train(x= wine_train_set, y=train$benefit , method = 'svmLinea
 
 #Build the prediction  
 model_result <- predict(train_svm_model, newdata = wine_test_set)
-
 conf_train <- table(model_result, wine_testing_result)
 names(dimnames(conf_train)) <- c("Predicted class", "Actual class")
 confusionMatrix(conf_train)
 
-
 #top influence
-#varImp(train_svm_model)
+varImp(train_svm_model)
 
 #top tf-idf
 good<- which(train$quality=="good")
@@ -172,6 +170,7 @@ high <- wine_train_set[high,]
 medium<- which(train$benefit=="medium")
 medium <- wine_train_set[medium,]
 
+#Word cloud
 good = data.frame(sort(colSums(good), decreasing=TRUE))
 wordcloud(rownames(good), good[,1], max.words=100, colors=brewer.pal(8, "Dark2"), scale=c(4,.5))
 
@@ -183,12 +182,3 @@ wordcloud(rownames(high), high[,1], max.words=100, colors=brewer.pal(8, "Dark2")
 
 medium = data.frame(sort(colSums(medium), decreasing=TRUE))
 wordcloud(rownames(medium), medium[,1], max.words=100, colors=brewer.pal(8, "Dark2"), scale=c(4,.5))
-
-
-ggplot(subset(wine, price <= 100),
-       aes(x = price, y = points)) +
-  geom_point(alpha = 0.3,  position = position_jitter()) + 
-  stat_smooth(method = "lm", size =2) +
-  labs(title = 'Price vs Point for Wines $100 and Under') +
-  theme_bw()
-

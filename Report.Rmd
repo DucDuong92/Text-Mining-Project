@@ -117,7 +117,7 @@ stopwords <- c("the", "and", "wine", stopwords)
 
 ```
 
-```{r}
+```{r, include=TRUE}
 stopwords
 ```
 
@@ -614,7 +614,6 @@ Because both problems is solve uing SVMLinear model, which use vector based on t
 
 Here is the result from the SVM Linear for "good" - "excellent" wine model: The first cloud is for excellent wine and the second one is for good wine
 ```{r}
-set.seed(1121)
 good<- which(train$quality=="good")
 good <- wine_train_set_ngram[good,]
 good = data.frame(sort(colSums(good), decreasing=TRUE))
